@@ -1,3 +1,7 @@
+import {
+  useEffect,
+} from "react";
+
 import type {
   FormEvent,
 } from "react";
@@ -35,6 +39,40 @@ function ReportIncidentModal({
   onChange,
   onSubmit,
 }: ReportIncidentModalProps) {
+  /*
+   * Make sure the incident form always
+   * contains a valid service.
+   *
+   * This fixes the case where the dropdown
+   * visually contains services but
+   * form.service is still empty.
+   */
+  useEffect(() => {
+    if (
+      services.length === 0
+    ) {
+      return;
+    }
+
+    const serviceExists =
+      services.some(
+        (service) =>
+          service.name ===
+          form.service
+      );
+
+    if (!serviceExists) {
+      onChange({
+        ...form,
+        service:
+          services[0].name,
+      });
+    }
+  }, [
+    services,
+    form.service,
+  ]);
+
   return (
     <div
       className="modal-backdrop"
@@ -83,6 +121,11 @@ function ReportIncidentModal({
               value={
                 form.service
               }
+              disabled={
+                submitting ||
+                services.length ===
+                  0
+              }
               onChange={(
                 event
               ) =>
@@ -95,26 +138,43 @@ function ReportIncidentModal({
                 })
               }
             >
-              {services.map(
-                (
-                  service
-                ) => (
-                  <option
-                    key={
-                      service.id
-                    }
-                    value={
-                      service.name
-                    }
-                  >
-                    {
-                      service.name
-                    }
-                  </option>
+              {services.length ===
+              0 ? (
+                <option value="">
+                  No services available
+                </option>
+              ) : (
+                services.map(
+                  (
+                    service
+                  ) => (
+                    <option
+                      key={
+                        service.id
+                      }
+                      value={
+                        service.name
+                      }
+                    >
+                      {
+                        service.name
+                      }
+                    </option>
+                  )
                 )
               )}
             </select>
           </label>
+
+          {services.length ===
+            0 && (
+            <div
+              className="form-message error"
+            >
+              You need to create a service before
+              reporting an incident.
+            </div>
+          )}
 
           <label>
             <span>
@@ -125,6 +185,9 @@ function ReportIncidentModal({
               type="text"
               value={
                 form.title
+              }
+              disabled={
+                submitting
               }
               onChange={(
                 event
@@ -150,6 +213,9 @@ function ReportIncidentModal({
             <select
               value={
                 form.severity
+              }
+              disabled={
+                submitting
               }
               onChange={(
                 event
@@ -202,6 +268,9 @@ function ReportIncidentModal({
               type="button"
               className="secondary-action"
               onClick={onClose}
+              disabled={
+                submitting
+              }
             >
               Cancel
             </button>
@@ -210,7 +279,11 @@ function ReportIncidentModal({
               type="submit"
               className="primary-action"
               disabled={
-                submitting
+                submitting ||
+                services.length ===
+                  0 ||
+                !form.service ||
+                !form.title.trim()
               }
             >
               {submitting
