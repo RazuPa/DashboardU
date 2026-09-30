@@ -26,31 +26,194 @@ import API_BASE from "../config/api";
 // DEMO MODE
 // ============================================================
 
+// Development with `npm run dev` = real backend.
+// Production/GitHub Pages/custom domain = browser demo storage.
 export const IS_DEMO_MODE =
-  window.location.hostname.endsWith(
-    "github.io"
+  import.meta.env.PROD;
+
+// ============================================================
+// LOCAL STORAGE KEYS
+// ============================================================
+
+const SERVICES_KEY =
+  "systempulse_services";
+
+const INCIDENTS_KEY =
+  "systempulse_incidents";
+
+const HISTORY_KEY =
+  "systempulse_incident_history";
+
+// ============================================================
+// STORAGE HELPERS
+// ============================================================
+
+function cloneService(
+  service: Service
+): Service {
+  return {
+    ...service,
+  };
+}
+
+function cloneIncident(
+  incident: Incident
+): Incident {
+  return {
+    ...incident,
+  };
+}
+
+function loadServices(): Service[] {
+  const stored =
+    localStorage.getItem(
+      SERVICES_KEY
+    );
+
+  if (stored) {
+    try {
+      return JSON.parse(
+        stored
+      ) as Service[];
+    } catch {
+      // Fall through to demo data.
+    }
+  }
+
+  const initial =
+    demoServices.map(
+      cloneService
+    );
+
+  localStorage.setItem(
+    SERVICES_KEY,
+    JSON.stringify(
+      initial
+    )
   );
+
+  return initial;
+}
+
+function loadIncidents(): Incident[] {
+  const stored =
+    localStorage.getItem(
+      INCIDENTS_KEY
+    );
+
+  if (stored) {
+    try {
+      return JSON.parse(
+        stored
+      ) as Incident[];
+    } catch {
+      // Fall through to demo data.
+    }
+  }
+
+  const initial =
+    demoIncidents.map(
+      cloneIncident
+    );
+
+  localStorage.setItem(
+    INCIDENTS_KEY,
+    JSON.stringify(
+      initial
+    )
+  );
+
+  return initial;
+}
+
+function loadHistory(): Incident[] {
+  const stored =
+    localStorage.getItem(
+      HISTORY_KEY
+    );
+
+  if (stored) {
+    try {
+      return JSON.parse(
+        stored
+      ) as Incident[];
+    } catch {
+      // Fall through to demo data.
+    }
+  }
+
+  const initial =
+    demoIncidentHistory.map(
+      cloneIncident
+    );
+
+  localStorage.setItem(
+    HISTORY_KEY,
+    JSON.stringify(
+      initial
+    )
+  );
+
+  return initial;
+}
+
+function saveServices(
+  services: Service[]
+) {
+  localStorage.setItem(
+    SERVICES_KEY,
+    JSON.stringify(
+      services
+    )
+  );
+}
+
+function saveIncidents(
+  incidents: Incident[]
+) {
+  localStorage.setItem(
+    INCIDENTS_KEY,
+    JSON.stringify(
+      incidents
+    )
+  );
+}
+
+function saveHistory(
+  history: Incident[]
+) {
+  localStorage.setItem(
+    HISTORY_KEY,
+    JSON.stringify(
+      history
+    )
+  );
+}
+
+// ============================================================
+// DEMO STATE
+// ============================================================
 
 let demoServicesState: Service[] =
-  demoServices.map(
-    (service) => ({
-      ...service,
-    })
-  );
+  IS_DEMO_MODE
+    ? loadServices()
+    : demoServices.map(
+        cloneService
+      );
 
 let demoIncidentsState: Incident[] =
-  demoIncidents.map(
-    (incident) => ({
-      ...incident,
-    })
-  );
+  IS_DEMO_MODE
+    ? loadIncidents()
+    : demoIncidents.map(
+        cloneIncident
+      );
 
 let demoHistoryState: Incident[] =
-  demoIncidentHistory.map(
-    (incident) => ({
-      ...incident,
-    })
-  );
+  IS_DEMO_MODE
+    ? loadHistory()
+    : demoIncidentHistory.map(
+        cloneIncident
+      );
 
 // ============================================================
 // RESPONSE HELPER
@@ -96,9 +259,7 @@ export async function getServices(): Promise<
 > {
   if (IS_DEMO_MODE) {
     return demoServicesState.map(
-      (service) => ({
-        ...service,
-      })
+      cloneService
     );
   }
 
@@ -185,9 +346,13 @@ export async function createService(
       service,
     ];
 
-    return {
-      ...service,
-    };
+    saveServices(
+      demoServicesState
+    );
+
+    return cloneService(
+      service
+    );
   }
 
   const response =
@@ -319,8 +484,6 @@ export async function updateService(
             : service
       );
 
-    // Incidents reference services
-    // by name, so keep them synced.
     demoIncidentsState =
       demoIncidentsState.map(
         (incident) =>
@@ -349,9 +512,21 @@ export async function updateService(
             : incident
       );
 
-    return {
-      ...updatedService,
-    };
+    saveServices(
+      demoServicesState
+    );
+
+    saveIncidents(
+      demoIncidentsState
+    );
+
+    saveHistory(
+      demoHistoryState
+    );
+
+    return cloneService(
+      updatedService
+    );
   }
 
   const response =
@@ -431,6 +606,10 @@ export async function deleteService(
           )
       );
 
+    saveServices(
+      demoServicesState
+    );
+
     return {
       success: true,
     };
@@ -459,9 +638,7 @@ export async function getIncidents(): Promise<
 > {
   if (IS_DEMO_MODE) {
     return demoIncidentsState.map(
-      (incident) => ({
-        ...incident,
-      })
+      cloneIncident
     );
   }
 
@@ -484,9 +661,7 @@ export async function getIncidentHistory(): Promise<
 > {
   if (IS_DEMO_MODE) {
     return demoHistoryState.map(
-      (incident) => ({
-        ...incident,
-      })
+      cloneIncident
     );
   }
 
@@ -508,21 +683,54 @@ export async function createIncident(
   form: IncidentFormState
 ): Promise<Incident> {
   if (IS_DEMO_MODE) {
-    const ids =
-      demoHistoryState
-        .map((incident) =>
-          Number(
-            incident.id
-          )
+    const service =
+      form.service.trim();
+
+    const title =
+      form.title.trim();
+
+    if (!service) {
+      throw new Error(
+        "Service is required."
+      );
+    }
+
+    if (!title) {
+      throw new Error(
+        "Incident title is required."
+      );
+    }
+
+    const serviceExists =
+      demoServicesState.some(
+        (item) =>
+          item.name ===
+          service
+      );
+
+    if (!serviceExists) {
+      throw new Error(
+        "Selected service does not exist."
+      );
+    }
+
+    const allIds = [
+      ...demoIncidentsState,
+      ...demoHistoryState,
+    ]
+      .map((incident) =>
+        Number(
+          incident.id
         )
-        .filter(
-          Number.isFinite
-        );
+      )
+      .filter(
+        Number.isFinite
+      );
 
     const nextId =
-      ids.length > 0
+      allIds.length > 0
         ? Math.max(
-            ...ids
+            ...allIds
           ) + 1
         : 1;
 
@@ -532,11 +740,9 @@ export async function createIncident(
     const incident: Incident = {
       id: nextId,
 
-      service:
-        form.service.trim(),
+      service,
 
-      title:
-        form.title.trim(),
+      title,
 
       severity:
         form.severity,
@@ -560,9 +766,17 @@ export async function createIncident(
       ...demoHistoryState,
     ];
 
-    return {
-      ...incident,
-    };
+    saveIncidents(
+      demoIncidentsState
+    );
+
+    saveHistory(
+      demoHistoryState
+    );
+
+    return cloneIncident(
+      incident
+    );
   }
 
   const response =
@@ -662,9 +876,17 @@ export async function updateIncident(
             : incident
       );
 
-    return {
-      ...updatedIncident,
-    };
+    saveHistory(
+      demoHistoryState
+    );
+
+    saveIncidents(
+      demoIncidentsState
+    );
+
+    return cloneIncident(
+      updatedIncident
+    );
   }
 
   const response =
@@ -748,6 +970,14 @@ export async function deleteIncident(
           )
       );
 
+    saveHistory(
+      demoHistoryState
+    );
+
+    saveIncidents(
+      demoIncidentsState
+    );
+
     return {
       success: true,
     };
@@ -828,9 +1058,17 @@ export async function resolveIncident(
           )
       );
 
-    return {
-      ...resolved,
-    };
+    saveHistory(
+      demoHistoryState
+    );
+
+    saveIncidents(
+      demoIncidentsState
+    );
+
+    return cloneIncident(
+      resolved
+    );
   }
 
   const response =
@@ -894,7 +1132,7 @@ export async function getOverview(): Promise<
         )
         .filter(
           (value) =>
-            value > 0
+            value >= 0
         );
 
     const uptimeValues =
