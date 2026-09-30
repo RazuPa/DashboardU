@@ -103,6 +103,18 @@ function OverviewPage({
         service.status === "offline"
     ).length;
 
+  // ============================================================
+  // FORMATTED VALUES
+  // ============================================================
+
+  const formattedAverageUptime =
+    Number(averageUptime).toFixed(2);
+
+  const formattedAverageResponse =
+    Math.round(
+      Number(averageResponse)
+    );
+
   return (
     <>
       {/* ====================================================== */}
@@ -145,7 +157,7 @@ function OverviewPage({
           </p>
 
           <strong>
-            {averageResponse} ms
+            {formattedAverageResponse} ms
           </strong>
 
           <span>
@@ -159,7 +171,7 @@ function OverviewPage({
           </p>
 
           <strong>
-            {averageUptime}%
+            {formattedAverageUptime}%
           </strong>
 
           <span>
